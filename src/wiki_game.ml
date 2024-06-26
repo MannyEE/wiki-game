@@ -1,5 +1,11 @@
 open! Core
 
+type website = 
+  {
+    url : string;
+    title : string
+  }
+
 (* [get_linked_articles] should return a list of wikipedia article lengths contained in
    the input.
 
@@ -15,8 +21,19 @@ open! Core
    uniformity in article format. We can expect that all Wikipedia article links parsed
    from a Wikipedia page will have the form "/wiki/<TITLE>". *)
 let get_linked_articles contents : string list =
-  ignore (contents : string);
-  failwith "TODO"
+  
+  let open Soup in
+
+  (* Print the targets of all links. *)
+  parse contents
+  $$ "a[href*=/wiki/]" |> to_list
+  |> List.map ~f:(fun a -> (R.attribute "href" a)) 
+  |> List.filter ~f:( fun str ->  
+    match Wikipedia_namespace.namespace str with
+      | None -> true
+      | _-> false) |> List.dedup_and_sort ~compare:String.compare;
+
+  
 ;;
 
 let print_links_command =
@@ -36,6 +53,19 @@ let print_links_command =
    implementation can be tested locally on the small dataset in the ../resources/wiki
    directory. *)
 let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
+
+  let websiteConnections = get_linked_articles origin in
+  let graph = List.map ~f:(fun website -> ( origin, website)) websiteConnections in
+  
+
+  let contents =
+    File_fetcher.fetch_exn
+      (Local (File_path.of_string "../resources/wiki")) in
+
+  
+  
+
+
   ignore (max_depth : int);
   ignore (origin : string);
   ignore (output_file : File_path.t);
