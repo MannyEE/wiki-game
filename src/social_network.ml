@@ -23,7 +23,6 @@ module Network = struct
       | _ -> None
     ;;
   end
-
   type t = Connection.Set.t [@@deriving sexp_of]
 
   let of_file input_file =
@@ -44,6 +43,8 @@ module Network = struct
     Connection.Set.of_list connections
   ;;
 end
+
+
 
 let load_command =
   let open Command.Let_syntax in
@@ -137,9 +138,8 @@ let findFriends network person =
     network
 ;;
 
-let rec bfs network ~person visited queue : Person.t list =
-  let graph = Set.elements network in
-  (* returns a list of tuples*)
+let rec bfs graph person visited queue : Person.t list =
+
   let connections = findFriends graph person in
   let newQueue =
     List.tl_exn queue
@@ -151,14 +151,17 @@ let rec bfs network ~person visited queue : Person.t list =
         true)
   in
   match newQueue with
-  | [] -> []
-  | _ -> [ List.hd_exn queue ] @ bfs network ~person visited newQueue
+  | [] -> [ List.hd_exn queue ]
+  | _ -> 
+    let newPerson  =  List.hd_exn queue in
+    [newPerson] @ bfs graph newPerson visited newQueue;
 ;;
 
 let find_friend_group network ~person : Person.t list =
-  let queue = [] in
-  let visited = Hash_set.create  in
-  bfs network person visited queue
+  let graph = Set.elements network in (* returns a list of tuples*)
+  let queue = [ person ] in
+  let visited = Person.Hash_set.create () in
+  bfs graph person visited queue
 ;;
 
 let find_friend_group_command =

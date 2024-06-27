@@ -1,10 +1,10 @@
 open! Core
 
-type website = 
+(* type website = 
   {
     url : string;
     title : string
-  }
+  } *)
 
 (* [get_linked_articles] should return a list of wikipedia article lengths contained in
    the input.
@@ -52,25 +52,50 @@ let print_links_command =
    [how_to_fetch] argument along with [File_fetcher] to fetch the articles so that the
    implementation can be tested locally on the small dataset in the ../resources/wiki
    directory. *)
+
+let rec getWikiNetwork depthRemaining curFile how_to_fetch: (string * string) list = 
+  let contents = File_fetcher.fetch_exn 
+    (how_to_fetch) ~resource:curFile in
+
+  let websiteConnections = get_linked_articles contents in
+  List.concat_map ~f:(fun childWebsite -> 
+    match depthRemaining with 
+    | 0 -> []
+    | _ -> [(curFile, childWebsite)] @  getWikiNetwork (depthRemaining - 1) childWebsite how_to_fetch) websiteConnections
+
+;;
+module G = Graph.Imperative.Graph.Concrete (String)
+module Dot = Graph.Graphviz.Dot (struct
+    include G
+
+    (* These functions can be changed to tweak the appearance of the
+       generated graph. Check out the ocamlgraph graphviz API
+       (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli)
+       for examples of what values can be set here. *)
+    let edge_attributes _ = [ `Dir `None ]
+    let default_edge_attributes _ = []
+    let get_subgraph _ = None
+    let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
+    let vertex_name v =sprintf!"\"%s\"" v
+    let default_vertex_attributes _ = []
+    let graph_attributes _ = []
+  end)
+
 let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
 
-  let websiteConnections = get_linked_articles origin in
-  let graph = List.map ~f:(fun website -> ( origin, website)) websiteConnections in
+      let network =  (getWikiNetwork max_depth origin how_to_fetch ) in
+      (* print_endline (Stdlib.string_of_int (List.length network));
+      List.iter network ~f:(fun (from, too) -> 
+        print_endline (String.concat ["from " ^ from ^ " to " ^ too])); *)
+      let graph = G.create () in 
+      List.iter network ~f:(fun (person1, person2) ->
+        (* [G.add_edge] auomatically adds the endpoints as vertices in the
+           graph if they don't already exist. *)
+        G.add_edge graph person1 person2);
+      Dot.output_graph
+        (Out_channel.create (File_path.to_string output_file))
+        graph;
   
-
-  let contents =
-    File_fetcher.fetch_exn
-      (Local (File_path.of_string "../resources/wiki")) in
-
-  
-  
-
-
-  ignore (max_depth : int);
-  ignore (origin : string);
-  ignore (output_file : File_path.t);
-  ignore (how_to_fetch : File_fetcher.How_to_fetch.t);
-  failwith "TODO"
 ;;
 
 let visualize_command =
