@@ -131,13 +131,106 @@ let visualize_command =
    the ../resources/wiki directory.
 
    [max_depth] is useful to limit the time the program spends exploring the graph. *)
+
+   (* let rec dfs (website : string) (destination : string) (connections : (string * string) list) (visited): string list= 
+
+  Hash_set.add visited website;
+
+  match website with 
+  | destination -> [website]
+  | _ ->
+    
+    let valid_neighbors = List.filter connections ~f:(fun (website1, website2) ->ignore website2; String.equal website1 website)
+    |> List.filter ~f:(fun (website1, website2) -> 
+      not (Hash_set.exists visited ~f:(fun (visited_website) -> 
+        ignore website1;
+        (String.equal visited_website website2))))in
+
+
+    match List.is_empty valid_neighbors with 
+    | true -> []
+    | false ->
+     
+      let next = List.concat_map valid_neighbors ~f:(fun (website, neighbor) -> 
+        ignore website; dfs neighbor destination connections visited)in
+
+      match next with 
+      | [] -> []
+      | _ -> [website] @ next
+
+;; *)
+
+let correct_url url (how_to_fetch : File_fetcher.How_to_fetch.t) =
+  match how_to_fetch with
+  | Local _ -> url
+  | Remote -> if not (String.is_prefix ~prefix:"https://" url) then "https://em.wikipedia.org" ^ url else url
+
+
+  let rec bfs (destination : string) (connections : (string * string) list) (visited) (queue : string list) how_to_fetch: string list= 
+    let cur_website = correct_url (List.hd_exn queue) how_to_fetch in
+    Hash_set.add visited cur_website;
+
+    print_endline (cur_website);
+    match String.equal destination cur_website with 
+    | true -> [cur_website]
+    | _ ->
+      
+      let valid_neighbors = List.filter connections ~f:(fun (website1, website2) ->ignore website2; String.equal website1 cur_website)
+      |> List.filter ~f:(fun (website1, website2) -> 
+        not (Hash_set.exists visited ~f:(fun (visited_website) -> 
+          ignore website1;
+          (String.equal visited_website website2))))
+        |> List.map ~f:(fun (website1, website2) -> ignore website1; website2) in
+
+    
+    let new_queue = queue @ valid_neighbors in
+    match List.is_empty new_queue with 
+    | true -> []
+    | false ->
+     
+      let next =  bfs destination connections visited (List.tl_exn queue) how_to_fetch in
+
+      match next with 
+      | [] -> []
+      | _ -> [cur_website] @ next
+
+;;
+
+
+(* let rec bfs graph website visited queue : string list =
+
+  let connections = findFriends graph person in
+  let newQueue =
+    List.tl_exn queue
+    @ List.filter connections ~f:(fun person ->
+      match Hash_set.exists visited ~f:(String.equal person) with
+      | true -> false
+      | false ->
+        Hash_set.add visited person;
+        true)
+  in
+  match newQueue with
+  | [] -> [ List.hd_exn queue ]
+  | _ -> 
+    let newPerson  =  List.hd_exn queue in
+    [newPerson] @ bfs graph newPerson visited newQueue; *)
+;;
 let find_path ?(max_depth = 3) ~origin ~destination ~how_to_fetch () =
+
+  let network =  getWikiNetwork max_depth origin how_to_fetch in
+  let visited = String.Hash_set.create () in
+  let queue = [origin] in
+  let solution = bfs destination network visited queue how_to_fetch in
+  List.iter solution ~f:print_endline ;
+
   ignore (max_depth : int);
   ignore (origin : string);
   ignore (destination : string);
   ignore (how_to_fetch : File_fetcher.How_to_fetch.t);
   failwith "TODO"
 ;;
+
+
 
 let find_path_command =
   let open Command.Let_syntax in
